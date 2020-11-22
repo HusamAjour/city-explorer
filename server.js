@@ -4,6 +4,11 @@ const express = require('express');
 require('dotenv').config();
 const server = express();
 
+// cors added
+const cors = require('cors');
+server.use(cors());
+
+
 const PORT = process.env.PORT || 3030;
 
 server.get('/', (req, res) => {
