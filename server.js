@@ -9,7 +9,7 @@ const cors = require('cors');
 server.use(cors());
 
 
-const PORT = process.env.PORT || 3030;
+const PORT = process.env.PORT;
 
 server.get('/', (req, res) => {
   res.send('Homepage');
