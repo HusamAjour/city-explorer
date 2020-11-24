@@ -3,6 +3,8 @@
 const express = require('express');
 require('dotenv').config();
 const server = express();
+const pg = require('pg');
+const client  = new pg.Client(process.env.DATABASE_URL);
 const superagent = require('superagent');
 // cors added
 const cors = require('cors');
@@ -20,20 +22,52 @@ server.get('/weather', weatherHandler);
 server.get('/trails', trailHandler);
 
 function locationHandler(req, res){
+
   let cityName = req.query.city;
   let locationToken =  process.env.GEO_API_KEY;
   let url = `https://us1.locationiq.com/v1/search.php?key=${locationToken}&q=${cityName}&format=json`;
 
-  superagent.get(url)
+  let SQL = `SELECT * FROM location WHERE search_query = '${cityName}'`;
+  client.query(SQL)
+    .then(result => {
+      if(result.rowCount !== 0){
+        res.status(200).json(result.rows);
+      }else if(result.rowCount === 0){
+        console.log('inside else');
+        callLocationAPI(url, cityName, res)
+          .then(locData => {
+            console.log(locData);
+            res.status(200).json(locData);
+          });
+        console.log('after callback function');
+      }
+    })
+    .catch(error=>errorHandler(error, req, res));
+
+  /*superagent.get(url)
     .then(data => {
       const locationObject = new Location(cityName, data.body);
       res.status(200).send(locationObject);
     })
     .catch(()=> {
       errorHandler('Location .. Something went wrong!!', req, res);
+    });*/
+}
+function callLocationAPI(url, cityName, res){
+  superagent.get(url)
+    .then(data => {
+      console.log('inside callback function');
+      const locationObject = new Location(cityName, data.body);
+      let insertSQL = `INSERT INTO location (search_query,formatted_query, latitude, longitude) VALUES ($1,$2,$3,$4)`;
+      let safeValues = [locationObject.search_query,locationObject.formatted_query, locationObject.latitude,locationObject.longitude];
+      client.query(insertSQL,safeValues)
+        .then (() =>{
+          console.log('your data has been added successfully!!');
+        });
+      console.log(locationObject);
+      return locationObject;
     });
 }
-
 function weatherHandler(req, res){
   let cityName = req.query.search_query;
   let cityLat = req.query.lat;
@@ -109,8 +143,10 @@ server.use((error, req, res) => {
   res.status(500).send('Sorry, something went wrong');
 });
 
-server.listen(PORT, ()=>{
-  console.log(`Listening on port ${PORT}`);
-});
 
-
+client.connect()
+  .then(() => {
+    server.listen(PORT, ()=>{
+      console.log(`Listening on port ${PORT}`);
+    });
+  });
