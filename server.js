@@ -27,14 +27,15 @@ function locationHandler(req, res){
   let locationToken =  process.env.GEO_API_KEY;
   let url = `https://us1.locationiq.com/v1/search.php?key=${locationToken}&q=${cityName}&format=json`;
 
-  let SQL = `SELECT * FROM location WHERE search_query = '${cityName}'`;
+  let SQL = `SELECT search_query, formatted_query, latitude, longitude FROM location WHERE search_query = '${cityName}'`;
   client.query(SQL)
     .then(result => {
       if(result.rowCount !== 0){
-        res.status(200).json(result.rows);
+        console.log(result);
+        res.status(200).json(result.rows[0]);
       }else if(result.rowCount === 0){
         console.log('inside else');
-        callLocationAPI(url, cityName, res)
+        callLocationAPI(url, cityName)
           .then(locData => {
             console.log(locData);
             res.status(200).json(locData);
@@ -53,8 +54,8 @@ function locationHandler(req, res){
       errorHandler('Location .. Something went wrong!!', req, res);
     });*/
 }
-function callLocationAPI(url, cityName, res){
-  superagent.get(url)
+function callLocationAPI(url, cityName){
+  return superagent.get(url)
     .then(data => {
       console.log('inside callback function');
       const locationObject = new Location(cityName, data.body);
